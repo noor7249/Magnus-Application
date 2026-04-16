@@ -1,8 +1,9 @@
+using Magnus.API.Models.Base;
 using System.ComponentModel.DataAnnotations;
 
 namespace Magnus.API.Models;
 
-public class Designation
+public class Designation : AuditableEntity
 {
     public int Id { get; set; }
 
@@ -10,11 +11,8 @@ public class Designation
     [MaxLength(100)]
     public string Title { get; set; } = string.Empty;
 
+    [MaxLength(500)]
     public string? Description { get; set; }
-
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    public DateTime? UpdatedAt { get; set; }
 
     public ICollection<Employee> Employees { get; set; } = new List<Employee>();
 }

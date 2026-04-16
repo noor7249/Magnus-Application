@@ -1,9 +1,10 @@
+using Magnus.API.Models.Base;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Magnus.API.Models;
 
-public class Employee
+public class Employee : AuditableEntity
 {
     public int Id { get; set; }
 
@@ -31,10 +32,6 @@ public class Employee
     public int DesignationId { get; set; }
 
     public bool IsActive { get; set; } = true;
-
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    public DateTime? UpdatedAt { get; set; }
 
     public Department? Department { get; set; }
 

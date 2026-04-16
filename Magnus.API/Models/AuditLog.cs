@@ -1,8 +1,9 @@
+using Magnus.API.Models.Base;
 using System.ComponentModel.DataAnnotations;
 
 namespace Magnus.API.Models;
 
-public class AuditLog
+public class AuditLog : AuditableEntity
 {
     public int Id { get; set; }
 

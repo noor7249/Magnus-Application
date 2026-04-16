@@ -1,3 +1,5 @@
+using Magnus.API.Helpers;
+using Microsoft.IdentityModel.Tokens;
 using System.Net;
 using System.Text.Json;
 
@@ -30,14 +32,24 @@ public class ExceptionMiddleware
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
-        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-
-        var response = new
+        context.Response.StatusCode = exception switch
         {
-            statusCode = context.Response.StatusCode,
-            message = "An unexpected error occurred.",
-            detail = exception.Message,
-            traceId = context.TraceIdentifier
+            AppException appException => (int)appException.StatusCode,
+            SecurityTokenException => (int)HttpStatusCode.Unauthorized,
+            UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
+            _ => (int)HttpStatusCode.InternalServerError
+        };
+
+        var response = exception switch
+        {
+            AppException appException => ApiResponse<object>.FailureResponse(
+                appException.Message,
+                appException.Errors,
+                context.TraceIdentifier),
+            _ => ApiResponse<object>.FailureResponse(
+                "An unexpected error occurred.",
+                new[] { exception.Message },
+                context.TraceIdentifier)
         };
 
         var json = JsonSerializer.Serialize(response);

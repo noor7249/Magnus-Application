@@ -1,96 +1,61 @@
-using Magnus.API.Data;
-using Magnus.API.Models;
+using Magnus.API.DTOs.Common;
+using Magnus.API.DTOs.Departments;
+using Magnus.API.Helpers;
+using Magnus.API.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Magnus.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class DepartmentsController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDepartmentService _departmentService;
 
-    public DepartmentsController(ApplicationDbContext context)
+    public DepartmentsController(IDepartmentService departmentService)
     {
-        _context = context;
+        _departmentService = departmentService;
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Department>>> GetAll()
+    [Authorize(Roles = $"{RoleConstants.Admin},{RoleConstants.Manager},{RoleConstants.Employee}")]
+    public async Task<ActionResult<ApiResponse<PagedResult<DepartmentReadDto>>>> GetAll([FromQuery] PagedQueryDto query, CancellationToken cancellationToken)
     {
-        var departments = await _context.Departments
-            .AsNoTracking()
-            .OrderBy(d => d.Name)
-            .ToListAsync();
-
-        return Ok(departments);
+        var result = await _departmentService.GetPagedAsync(query, cancellationToken);
+        return Ok(ApiResponse<PagedResult<DepartmentReadDto>>.SuccessResponse(result, "Departments retrieved successfully."));
     }
 
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<Department>> GetById(int id)
+    [Authorize(Roles = $"{RoleConstants.Admin},{RoleConstants.Manager},{RoleConstants.Employee}")]
+    public async Task<ActionResult<ApiResponse<DepartmentReadDto>>> GetById(int id, CancellationToken cancellationToken)
     {
-        var department = await _context.Departments
-            .AsNoTracking()
-            .FirstOrDefaultAsync(d => d.Id == id);
-
-        if (department is null)
-        {
-            return NotFound(new { message = $"Department with id {id} was not found." });
-        }
-
-        return Ok(department);
+        var result = await _departmentService.GetByIdAsync(id, cancellationToken);
+        return Ok(ApiResponse<DepartmentReadDto>.SuccessResponse(result, "Department retrieved successfully."));
     }
 
     [HttpPost]
-    public async Task<ActionResult<Department>> Create([FromBody] Department department)
+    [Authorize(Roles = RoleConstants.Admin)]
+    public async Task<ActionResult<ApiResponse<DepartmentReadDto>>> Create([FromBody] DepartmentCreateDto request, CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid)
-        {
-            return ValidationProblem(ModelState);
-        }
-
-        department.CreatedAt = DateTime.UtcNow;
-        _context.Departments.Add(department);
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetById), new { id = department.Id }, department);
+        var result = await _departmentService.CreateAsync(request, cancellationToken);
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, ApiResponse<DepartmentReadDto>.SuccessResponse(result, "Department created successfully."));
     }
 
     [HttpPut("{id:int}")]
-    public async Task<ActionResult<Department>> Update(int id, [FromBody] Department request)
+    [Authorize(Roles = $"{RoleConstants.Admin},{RoleConstants.Manager}")]
+    public async Task<ActionResult<ApiResponse<DepartmentReadDto>>> Update(int id, [FromBody] DepartmentUpdateDto request, CancellationToken cancellationToken)
     {
-        if (id != request.Id)
-        {
-            return BadRequest(new { message = "Route id and request id must match." });
-        }
-
-        var department = await _context.Departments.FirstOrDefaultAsync(d => d.Id == id);
-        if (department is null)
-        {
-            return NotFound(new { message = $"Department with id {id} was not found." });
-        }
-
-        department.Name = request.Name;
-        department.Description = request.Description;
-        department.UpdatedAt = DateTime.UtcNow;
-
-        await _context.SaveChangesAsync();
-        return Ok(department);
+        var result = await _departmentService.UpdateAsync(id, request, cancellationToken);
+        return Ok(ApiResponse<DepartmentReadDto>.SuccessResponse(result, "Department updated successfully."));
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id)
+    [Authorize(Roles = RoleConstants.Admin)]
+    public async Task<ActionResult<ApiResponse<object>>> Delete(int id, CancellationToken cancellationToken)
     {
-        var department = await _context.Departments.FirstOrDefaultAsync(d => d.Id == id);
-        if (department is null)
-        {
-            return NotFound(new { message = $"Department with id {id} was not found." });
-        }
-
-        _context.Departments.Remove(department);
-        await _context.SaveChangesAsync();
-
-        return NoContent();
+        await _departmentService.DeleteAsync(id, cancellationToken);
+        return Ok(ApiResponse<object>.SuccessResponse(null, "Department deleted successfully."));
     }
 }
