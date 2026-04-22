@@ -54,6 +54,18 @@ public static class DbSeeder
 
             logger?.LogInformation("Seeded admin user {AdminEmail} with username {AdminUsername}.", seedSettings.Email, seedSettings.Username);
         }
+        else if (seedSettings.ResetAdminPasswordOnSeed)
+        {
+            var resetToken = await userManager.GeneratePasswordResetTokenAsync(adminUser);
+            var resetResult = await userManager.ResetPasswordAsync(adminUser, resetToken, seedSettings.AdminPassword);
+            if (!resetResult.Succeeded)
+            {
+                var errors = string.Join("; ", resetResult.Errors.Select(x => x.Description));
+                throw new InvalidOperationException($"Admin password reset failed: {errors}");
+            }
+
+            logger?.LogInformation("Reset password for seeded admin user {AdminEmail}.", seedSettings.Email);
+        }
 
         if (!await userManager.IsInRoleAsync(adminUser, RoleConstants.Admin))
         {

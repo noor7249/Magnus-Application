@@ -1,4 +1,3 @@
-using Magnus.API.Helpers;
 using System.ComponentModel.DataAnnotations;
 
 namespace Magnus.API.DTOs.Auth;
@@ -14,12 +13,10 @@ public class RegisterRequestDto
     public string Email { get; set; } = string.Empty;
 
     [Required]
-    [MinLength(8)]
+    [MinLength(10)]
     public string Password { get; set; } = string.Empty;
 
     [Required]
     [Compare(nameof(Password))]
     public string ConfirmPassword { get; set; } = string.Empty;
-
-    public string Role { get; set; } = RoleConstants.Employee;
 }

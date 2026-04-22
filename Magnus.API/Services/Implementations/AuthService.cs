@@ -30,11 +30,7 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponseDto> RegisterAsync(RegisterRequestDto request, CancellationToken cancellationToken = default)
     {
-        var role = string.IsNullOrWhiteSpace(request.Role) ? RoleConstants.Employee : request.Role.Trim();
-        if (!new[] { RoleConstants.Admin, RoleConstants.Manager, RoleConstants.Employee }.Contains(role, StringComparer.OrdinalIgnoreCase))
-        {
-            throw new AppException("Invalid role supplied for registration.", HttpStatusCode.BadRequest);
-        }
+        const string role = RoleConstants.Employee;
 
         var existingUser = await _userManager.FindByEmailAsync(request.Email);
         if (existingUser is not null)
@@ -57,7 +53,7 @@ public class AuthService : IAuthService
         }
 
         await _userManager.AddToRoleAsync(user, role);
-        await _auditService.LogAsync("Register", nameof(ApplicationUser), user.Id, $"User registered with role {role}.", user.Id, cancellationToken);
+        await _auditService.LogAsync("Register", nameof(ApplicationUser), user.Id, $"User registered with default role {role}.", user.Id, cancellationToken);
 
         return await _tokenService.CreateTokenAsync(user);
     }

@@ -117,6 +117,11 @@ if (string.IsNullOrWhiteSpace(secret))
     throw new InvalidOperationException("JWT secret must be provided through configuration or user secrets.");
 }
 
+if (Encoding.UTF8.GetByteCount(secret) < 32)
+{
+    throw new InvalidOperationException("JWT secret must be at least 32 bytes for HMAC-SHA256 signing.");
+}
+
 var seedSettings = builder.Configuration.GetSection(SeedSettings.SectionName);
 if (string.IsNullOrWhiteSpace(seedSettings["AdminPassword"]))
 {
@@ -166,7 +171,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddAutoMapper(typeof(MappingProfile));
+builder.Services.AddAutoMapper(_ => { }, typeof(MappingProfile).Assembly);
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAuditService, AuditService>();

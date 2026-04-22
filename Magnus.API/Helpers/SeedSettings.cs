@@ -19,4 +19,6 @@ public class SeedSettings
     [Required]
     [MinLength(10, ErrorMessage = "SeedSettings:AdminPassword must be at least 10 characters to satisfy the Identity password policy.")]
     public string AdminPassword { get; set; } = string.Empty;
+
+    public bool ResetAdminPasswordOnSeed { get; set; }
 }
