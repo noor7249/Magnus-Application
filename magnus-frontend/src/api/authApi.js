@@ -1,8 +1,9 @@
 import axios from 'axios'
-import { API_BASE_URL, unwrapApiResponse } from './httpClient'
+import API_BASE_URL from '../config/api'
+import { unwrapApiResponse } from './httpClient'
 
 const authClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: `${API_BASE_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
