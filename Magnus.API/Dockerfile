@@ -1,13 +1,16 @@
+# Build stage (.NET 10)
 FROM mcr.microsoft.com/dotnet/nightly/sdk:10.0 AS build
-WORKDIR /src
+WORKDIR /app
 
-COPY ["Magnus.API.csproj", "./"]
-RUN dotnet restore "Magnus.API.csproj"
+# Copy everything (simpler & safer)
+COPY . ./
 
-COPY . .
-RUN dotnet publish "Magnus.API.csproj" -c Release -o /app/out
+# Restore & publish
+RUN dotnet restore
+RUN dotnet publish -c Release -o /app/out
 
-FROM mcr.microsoft.com/dotnet/nightly/aspnet:10.0 AS runtime
+# Runtime stage (.NET 10)
+FROM mcr.microsoft.com/dotnet/nightly/aspnet:10.0
 WORKDIR /app
 
 COPY --from=build /app/out .
