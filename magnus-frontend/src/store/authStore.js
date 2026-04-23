@@ -1,15 +1,12 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import { authApi } from '../api/authApi'
 
-export const useAuthStore = create(
-  persist(
-    (set, get) => ({
+export const useAuthStore = create((set, get) => ({
       user: null,
       token: null,
-      refreshTokenValue: null,
       expiresAtUtc: null,
       isAuthenticated: false,
+      isRestoringSession: true,
 
       login: async (credentials) => {
         const session = await authApi.login(credentials)
@@ -24,16 +21,7 @@ export const useAuthStore = create(
       },
 
       refreshToken: async () => {
-        const { token, refreshTokenValue } = get()
-        if (!token || !refreshTokenValue) {
-          get().logout()
-          return null
-        }
-
-        const session = await authApi.refreshToken({
-          accessToken: token,
-          refreshToken: refreshTokenValue,
-        })
+        const session = await authApi.refreshToken()
         get().setSession(session)
         return session
       },
@@ -41,7 +29,6 @@ export const useAuthStore = create(
       setSession: (session) => {
         set({
           token: session.accessToken,
-          refreshTokenValue: session.refreshToken,
           expiresAtUtc: session.expiresAtUtc,
           user: {
             email: session.email,
@@ -49,33 +36,51 @@ export const useAuthStore = create(
             roles: session.roles || [],
           },
           isAuthenticated: true,
+          isRestoringSession: false,
         })
       },
 
-      logout: () => {
+      restoreSession: async () => {
+        if (get().isAuthenticated) {
+          set({ isRestoringSession: false })
+          return get().isAuthenticated
+        }
+
+        set({ isRestoringSession: true })
+
+        try {
+          const session = await authApi.refreshToken()
+          get().setSession(session)
+          return true
+        } catch {
+          get().clearSession()
+          return false
+        } finally {
+          set({ isRestoringSession: false })
+        }
+      },
+
+      clearSession: () => {
+        localStorage.removeItem('accessToken')
         set({
           user: null,
           token: null,
-          refreshTokenValue: null,
           expiresAtUtc: null,
           isAuthenticated: false,
+          isRestoringSession: false,
         })
+      },
+
+      logout: async () => {
+        try {
+          await authApi.logout()
+        } finally {
+          get().clearSession()
+        }
       },
 
       hasAnyRole: (roles = []) => {
         const userRoles = get().user?.roles || []
         return roles.length === 0 || roles.some((role) => userRoles.includes(role))
       },
-    }),
-    {
-      name: 'magnus-auth',
-      partialize: (state) => ({
-        user: state.user,
-        token: state.token,
-        refreshTokenValue: state.refreshTokenValue,
-        expiresAtUtc: state.expiresAtUtc,
-        isAuthenticated: state.isAuthenticated,
-      }),
-    },
-  ),
-)
+}))

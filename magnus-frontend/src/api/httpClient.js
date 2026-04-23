@@ -5,15 +5,38 @@ import { useUiStore } from '../store/uiStore'
 import { getApiErrorMessage } from '../utils/apiError'
 
 export const httpClient = axios.create({
-  baseURL: `${API_BASE_URL}/api`,
+  baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
 let refreshPromise = null
+const CSRF_COOKIE_NAME = 'XSRF-TOKEN'
+const CSRF_HEADER_NAME = 'X-XSRF-TOKEN'
+
+export function getCookie(name) {
+  return document.cookie
+    .split('; ')
+    .find((row) => row.startsWith(`${name}=`))
+    ?.split('=')[1]
+}
+
+export function attachCsrfToken(config) {
+  const method = config.method?.toUpperCase()
+  if (method && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    const csrfToken = getCookie(CSRF_COOKIE_NAME)
+    if (csrfToken) {
+      config.headers[CSRF_HEADER_NAME] = decodeURIComponent(csrfToken)
+    }
+  }
+
+  return config
+}
 
 httpClient.interceptors.request.use((config) => {
+  attachCsrfToken(config)
   const token = useAuthStore.getState().token
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -26,7 +49,8 @@ httpClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    const isAuthRequest = originalRequest?.url?.includes('/auth/login') || originalRequest?.url?.includes('/auth/register') || originalRequest?.url?.includes('/auth/refresh-token')
+    const normalizedUrl = originalRequest?.url?.toLowerCase()
+    const isAuthRequest = normalizedUrl?.includes('/auth/login') || normalizedUrl?.includes('/auth/register') || normalizedUrl?.includes('/auth/refresh') || normalizedUrl?.includes('/auth/refresh-token')
 
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthRequest) {
       originalRequest._retry = true
@@ -44,7 +68,8 @@ httpClient.interceptors.response.use(
         return httpClient(originalRequest)
       } catch (refreshError) {
         refreshPromise = null
-        useAuthStore.getState().logout()
+        useAuthStore.getState().clearSession()
+        // Centralized 401 handling avoids leaving stale sessions active in the UI.
         useUiStore.getState().setGlobalError('Your session expired. Please sign in again.')
         return Promise.reject(refreshError)
       }

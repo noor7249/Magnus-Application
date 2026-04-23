@@ -132,6 +132,12 @@ if (Encoding.UTF8.GetByteCount(secret) < 32)
     throw new InvalidOperationException("JWT secret must be at least 32 bytes for HMAC-SHA256 signing.");
 }
 
+var accessTokenExpiryMinutes = jwtSettings.GetValue<int>("ExpiryMinutes");
+if (accessTokenExpiryMinutes < 15 || accessTokenExpiryMinutes > 30)
+{
+    throw new InvalidOperationException("JwtSettings:ExpiryMinutes must be between 15 and 30 minutes for production token hygiene.");
+}
+
 var seedSettings = builder.Configuration.GetSection(SeedSettings.SectionName);
 if (string.IsNullOrWhiteSpace(seedSettings["AdminPassword"]))
 {
@@ -182,7 +188,8 @@ builder.Services.AddCors(options =>
 
         policy.WithOrigins(corsOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 

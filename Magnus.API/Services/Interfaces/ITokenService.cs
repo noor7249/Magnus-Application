@@ -9,4 +9,5 @@ public interface ITokenService
     Task<AuthResponseDto> CreateTokenAsync(ApplicationUser user);
     ClaimsPrincipal GetPrincipalFromExpiredToken(string token);
     string GenerateRefreshToken();
+    string HashRefreshToken(string refreshToken);
 }

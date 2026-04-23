@@ -51,7 +51,7 @@ public class TokenService : ITokenService
             signingCredentials: creds);
 
         var refreshToken = GenerateRefreshToken();
-        user.RefreshToken = refreshToken;
+        user.RefreshToken = HashRefreshToken(refreshToken);
         user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays);
         await _userManager.UpdateAsync(user);
 
@@ -95,5 +95,12 @@ public class TokenService : ITokenService
     {
         var randomBytes = RandomNumberGenerator.GetBytes(64);
         return Convert.ToBase64String(randomBytes);
+    }
+
+    public string HashRefreshToken(string refreshToken)
+    {
+        var tokenBytes = Encoding.UTF8.GetBytes(refreshToken);
+        var hashBytes = SHA256.HashData(tokenBytes);
+        return Convert.ToBase64String(hashBytes);
     }
 }
