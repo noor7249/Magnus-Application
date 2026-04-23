@@ -5,10 +5,12 @@ using Magnus.API.Middleware;
 using Magnus.API.Models;
 using Magnus.API.Services.Implementations;
 using Magnus.API.Services.Interfaces;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
@@ -19,7 +21,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration
     .SetBasePath(builder.Environment.ContentRootPath)
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
     .AddUserSecrets<Program>(optional: true)
     .AddEnvironmentVariables();
 
@@ -32,6 +33,13 @@ builder.Services
         settings => !settings.AdminPassword.Contains("__SET_IN_USER_SECRETS_OR_ENV__", StringComparison.Ordinal),
         "SeedSettings:AdminPassword must be provided through user secrets or environment variables.")
     .ValidateOnStart();
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddControllers();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -93,7 +101,9 @@ if (string.IsNullOrWhiteSpace(defaultConnection))
 }
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(defaultConnection));
+    options
+        .UseNpgsql(defaultConnection)
+        .ConfigureWarnings(warnings => warnings.Log(RelationalEventId.PendingModelChangesWarning)));
 
 builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -129,6 +139,7 @@ if (string.IsNullOrWhiteSpace(seedSettings["AdminPassword"]))
 }
 
 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
+var isRender = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RENDER"));
 
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
 
@@ -164,6 +175,11 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("ReactClient", policy =>
     {
+        if (corsOrigins.Length == 0)
+        {
+            return;
+        }
+
         policy.WithOrigins(corsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
@@ -184,6 +200,7 @@ var app = builder.Build();
 
 await ApplyMigrationsAndSeedAsync(app);
 
+app.UseForwardedHeaders();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseSwagger();
 app.UseSwaggerUI(options =>
@@ -191,11 +208,19 @@ app.UseSwaggerUI(options =>
     options.RoutePrefix = "swagger";
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "Magnus API v1");
 });
-app.UseHttpsRedirection();
+
+if (!isRender)
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseCors("ReactClient");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+app.Urls.Add($"http://0.0.0.0:{port}");
 
 app.Run();
 

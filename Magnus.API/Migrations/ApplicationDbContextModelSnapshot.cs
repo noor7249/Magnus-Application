@@ -193,6 +193,9 @@ namespace Magnus.API.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Name")
+                        .IsUnique();
+
                     b.ToTable("Departments");
                 });
 
@@ -225,6 +228,9 @@ namespace Magnus.API.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Title")
+                        .IsUnique();
 
                     b.ToTable("Designations");
                 });
